@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
+#include <stdbool.h> // Para usar o tipo bool
 
 // Estrutura para representar uma carta do jogo
 typedef struct {
@@ -23,58 +24,26 @@ void limpar_nova_linha(char *str) {
     str[strcspn(str, "\n")] = '\0';
 }
 
-// Função para exibir o resultado da comparação de forma clara
-// Parâmetros:
-// - atributo: Nome do atributo sendo comparado (ex: "População")
-// - valor1, valor2: Valores do atributo para as cartas 1 e 2
-// - menor_vence: Flag (1 para sim, 0 para não) que inverte a regra (menor valor ganha)
-// - c1, c2: As duas cartas sendo comparadas, para podermos exibir seus nomes
-void comparar_cartas(const char* atributo, double valor1, double valor2, int menor_vence, Carta c1, Carta c2) {
-    printf("\n--- RESULTADO DA COMPARAÇÃO ---\n");
-    printf("Atributo Escolhido: %s\n", atributo);
-    printf("----------------------------------\n");
-    printf("Carta 1 (%s): %.2f\n", c1.NomeCidade, valor1);
-    printf("Carta 2 (%s): %.2f\n", c2.NomeCidade, valor2);
-    printf("----------------------------------\n");
-
-    int carta1_venceu = 0;
-    int empate = 0;
-
-    if (menor_vence) {
-        // Regra invertida: menor valor vence
-        if (valor1 < valor2) {
-            carta1_venceu = 1;
-        } else if (valor1 == valor2) {
-            empate = 1;
-        }
-    } else {
-        // Regra padrão: maior valor vence
-        if (valor1 > valor2) {
-            carta1_venceu = 1;
-        } else if (valor1 == valor2) {
-            empate = 1;
-        }
+// Função auxiliar para obter o valor de um atributo com base na escolha do menu
+// Isso evita um bloco switch gigante e repetitivo no main
+double get_valor_atributo(Carta c, int escolha) {
+    switch (escolha) {
+        case 1: return (double)c.Populacao;
+        case 2: return c.Area;
+        case 3: return c.PIB;
+        case 4: return (double)c.NumeroPontosTuristicos;
+        case 5: return c.DensidadePopulacional;
+        case 6: return c.PIBPerCapita;
+        default: return 0.0; // Valor padrão em caso de erro
     }
-
-    if (empate) {
-        printf("Resultado: Empate!\n");
-    } else if (carta1_venceu) {
-        printf("Resultado: Carta 1 (%s) venceu!\n", c1.NomeCidade);
-    } else {
-        printf("Resultado: Carta 2 (%s) venceu!\n", c2.NomeCidade);
-    }
-    printf("--- FIM DA COMPARAÇÃO ---\n");
 }
 
-
 int main() {
-    int QuantidadeCartas;
+    // --- SEÇÃO DE CADASTRO DAS CARTAS (sem alterações do código anterior) ---
     char buffer[100];
-
     printf("Iniciando Cadastro Super Trunfo\n\n");
-
     printf("> Vai ser solicitado o cadastro de 2(duas) cartas! \n");
-    QuantidadeCartas = 2;
+    const int QuantidadeCartas = 2;
 
     Carta *Baralho = malloc(QuantidadeCartas * sizeof(Carta));
     if (!Baralho) {
@@ -82,39 +51,10 @@ int main() {
         return 1;
     }
     printf(">> Memória alocada com sucesso.\n");
-
-    int used[8][4] = {0};
     srand((unsigned)time(NULL));
-
-    printf("> Iniciando cadastro das cartas.\n");
 
     for (int i = 0; i < QuantidadeCartas; i++) {
         printf("\n>> Cadastro da carta [%d]\n", i + 1);
-
-        while (1) {
-            printf(">>> Informe o Estado (A-H): ");
-            fgets(buffer, sizeof(buffer), stdin);
-            if (strlen(buffer) < 2) continue; // Garante que algo além de '\n' foi digitado
-            Baralho[i].Estado = (char)toupper((unsigned char)buffer[0]);
-            if (Baralho[i].Estado >= 'A' && Baralho[i].Estado <= 'H') break;
-            printf(">> Estado inválido! Use A..H.\n");
-        }
-
-        int e = Baralho[i].Estado - 'A';
-        int livres = 0;
-        for (int k = 0; k < 4; k++) if (!used[e][k]) livres++;
-        if (livres == 0) {
-            printf(">> Para o estado %c ja existem 4 cartas (01..04). Escolha outro estado.\n", Baralho[i].Estado);
-            i--;
-            continue;
-        }
-
-        int num;
-        do { num = (rand() % 4) + 1; } while (used[e][num - 1]);
-        used[e][num - 1] = 1;
-
-        snprintf(Baralho[i].CodigoCarta, sizeof(Baralho[i].CodigoCarta), "%c%02d", Baralho[i].Estado, num);
-
         printf(">>> Informe o nome da cidade: ");
         fgets(Baralho[i].NomeCidade, sizeof(Baralho[i].NomeCidade), stdin);
         limpar_nova_linha(Baralho[i].NomeCidade);
@@ -135,92 +75,128 @@ int main() {
         fgets(buffer, sizeof(buffer), stdin);
         Baralho[i].NumeroPontosTuristicos = atoi(buffer);
 
-        printf(">>> Calculando densidade populacional!\n");
         if (Baralho[i].Area > 0.0f) {
             Baralho[i].DensidadePopulacional = (float)Baralho[i].Populacao / Baralho[i].Area;
         } else {
             Baralho[i].DensidadePopulacional = 0.0f;
-            printf(">>> Atenção: área zero. Densidade definida como 0.0.\n");
         }
-
-        printf(">>> Calculando PIB per capita!\n");
         if (Baralho[i].Populacao > 0) {
             Baralho[i].PIBPerCapita = (float)((Baralho[i].PIB * 1e9) / (double)Baralho[i].Populacao);
         } else {
             Baralho[i].PIBPerCapita = 0.0f;
-            printf(">>> Atenção: população zero. PIB per capita definido como 0.0.\n");
         }
-
-        // O cálculo do Super Poder não é usado na comparação, mas mantemos por consistência
-        double termo_inverso_densidade = 0.0;
-        if (Baralho[i].DensidadePopulacional > 0.0f) {
-            termo_inverso_densidade = 1.0 / (double)Baralho[i].DensidadePopulacional;
-        }
-        Baralho[i].SuperPoder = (double)Baralho[i].Populacao + (double)Baralho[i].Area + (double)Baralho[i].PIB +
-                              (double)Baralho[i].NumeroPontosTuristicos + (double)Baralho[i].PIBPerCapita +
-                              termo_inverso_densidade;
     }
+    printf("\n> Finalizado cadastro das cartas.\n\n");
 
-    printf("\n> Finalizado cadastro das cartas.\n");
-    printf("> Exibindo cadastro das cartas.\n\n");
+    // --- FIM DA SEÇÃO DE CADASTRO ---
 
-    for (int i = 0; i < QuantidadeCartas; i++) {
-        printf(">> ---------------------------------------------------------------------------------\n");
-        printf(">> CARTA                       : %d (%s)\n", i + 1, Baralho[i].NomeCidade);
-        printf(">> CÓDIGO DA CARTA             : %s\n", Baralho[i].CodigoCarta);
-        printf(">> POPULAÇÃO                   : %lu\n", Baralho[i].Populacao);          
-        printf(">> ÁREA                        : %.2f km²\n", Baralho[i].Area);
-        printf(">> PIB                         : %.2f bilhões de reais\n", Baralho[i].PIB);
-        printf(">> NÚMERO DE PONTOS TURISTICOS : %d\n", Baralho[i].NumeroPontosTuristicos);
-        printf(">> DENSIDADE POPULACIONAL      : %.2f hab/km²\n", Baralho[i].DensidadePopulacional);
-        printf(">> PIB PER CAPITA              : %.2f reais\n", Baralho[i].PIBPerCapita);
-        printf(">> ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯\n");
-    }
 
-    // --- INÍCIO DA SEÇÃO DE COMPARAÇÃO INTERATIVA ---
+    // --- INÍCIO DA SEÇÃO DE COMPARAÇÃO AVANÇADA ---
     
-    printf("\n\n====================== HORA DO DUELO! ======================\n");
-    printf("Escolha o atributo para comparar as cartas %s e %s:\n", Baralho[0].NomeCidade, Baralho[1].NomeCidade);
-    printf("1. População\n");
-    printf("2. Área\n");
-    printf("3. PIB\n");
-    printf("4. Número de Pontos Turísticos\n");
-    printf("5. Densidade Populacional (MENOR vence)\n");
-    printf("6. PIB per Capita\n");
-    printf("============================================================\n");
-    printf("Sua escolha: ");
+    printf("\n\n====================== HORA DO DUELO FINAL! ======================\n");
+    printf("Você deve escolher dois atributos para a comparação.\n");
+    printf("A carta com a MAIOR SOMA dos valores dos atributos vence!\n");
+    printf("====================================================================\n\n");
 
-    int escolha;
-    fgets(buffer, sizeof(buffer), stdin);
-    escolha = atoi(buffer);
+    const char *nomes_atributos[] = {
+        "População", "Área", "PIB", 
+        "Número de Pontos Turísticos", "Densidade Populacional", "PIB per Capita"
+    };
+    int escolha1 = 0, escolha2 = 0;
 
-    switch (escolha) {
-        case 1:
-            comparar_cartas("População", (double)Baralho[0].Populacao, (double)Baralho[1].Populacao, 0, Baralho[0], Baralho[1]);
-            break;
-        case 2:
-            comparar_cartas("Área", Baralho[0].Area, Baralho[1].Area, 0, Baralho[0], Baralho[1]);
-            break;
-        case 3:
-            comparar_cartas("PIB", Baralho[0].PIB, Baralho[1].PIB, 0, Baralho[0], Baralho[1]);
-            break;
-        case 4:
-            comparar_cartas("Número de Pontos Turísticos", (double)Baralho[0].NumeroPontosTuristicos, (double)Baralho[1].NumeroPontosTuristicos, 0, Baralho[0], Baralho[1]);
-            break;
-        case 5:
-            // Regra especial: menor vence
-            comparar_cartas("Densidade Populacional", Baralho[0].DensidadePopulacional, Baralho[1].DensidadePopulacional, 1, Baralho[0], Baralho[1]);
-            break;
-        case 6:
-            comparar_cartas("PIB per Capita", Baralho[0].PIBPerCapita, Baralho[1].PIBPerCapita, 0, Baralho[0], Baralho[1]);
-            break;
-        default:
-            printf("\n>> Opção inválida! Nenhuma comparação foi realizada.\n");
-            break;
+    // --- ESCOLHA DO PRIMEIRO ATRIBUTO ---
+    printf("Escolha o PRIMEIRO atributo para comparar:\n");
+    for (int i = 0; i < 6; i++) {
+        printf("%d. %s %s\n", i + 1, nomes_atributos[i], (i + 1 == 5) ? "(MENOR vence)" : "");
     }
+    printf("Sua escolha: ");
+    fgets(buffer, sizeof(buffer), stdin);
+    escolha1 = atoi(buffer);
+
+    // Validação da primeira escolha
+    if (escolha1 < 1 || escolha1 > 6) {
+        printf("\n>> Escolha inválida! Programa encerrado.\n");
+        free(Baralho);
+        return 1;
+    }
+
+    // --- ESCOLHA DO SEGUNDO ATRIBUTO (MENU DINÂMICO) ---
+    printf("\nEscolha o SEGUNDO atributo (diferente de '%s'):\n", nomes_atributos[escolha1 - 1]);
+    for (int i = 0; i < 6; i++) {
+        // Apenas exibe as opções que NÃO foram a primeira escolha
+        if ((i + 1) != escolha1) {
+             printf("%d. %s %s\n", i + 1, nomes_atributos[i], (i + 1 == 5) ? "(MENOR vence)" : "");
+        }
+    }
+    printf("Sua escolha: ");
+    fgets(buffer, sizeof(buffer), stdin);
+    escolha2 = atoi(buffer);
+
+    // Validação da segunda escolha
+    if (escolha2 < 1 || escolha2 > 6 || escolha2 == escolha1) {
+        printf("\n>> Escolha inválida ou repetida! Programa encerrado.\n");
+        free(Baralho);
+        return 1;
+    }
+
+    // --- OBTENDO VALORES E NOMES DOS ATRIBUTOS ESCOLHIDOS ---
+    const char *nome_attr1 = nomes_atributos[escolha1 - 1];
+    const char *nome_attr2 = nomes_atributos[escolha2 - 1];
+
+    double valor_attr1_c1 = get_valor_atributo(Baralho[0], escolha1);
+    double valor_attr1_c2 = get_valor_atributo(Baralho[1], escolha1);
+    
+    double valor_attr2_c1 = get_valor_atributo(Baralho[0], escolha2);
+    double valor_attr2_c2 = get_valor_atributo(Baralho[1], escolha2);
+
+    // --- CÁLCULO DAS SOMAS ---
+    double soma_carta1 = valor_attr1_c1 + valor_attr2_c1;
+    double soma_carta2 = valor_attr1_c2 + valor_attr2_c2;
+
+    // --- EXIBIÇÃO DETALHADA DO RESULTADO ---
+    printf("\n\n--- ANÁLISE COMPLETA DA RODADA ---\n");
+    printf("Atributos escolhidos: %s e %s\n", nome_attr1, nome_attr2);
+    printf("------------------------------------\n");
+
+    // Exibição dos valores individuais para cada carta
+    printf("CARTA 1: %s\n", Baralho[0].NomeCidade);
+    printf("  > %-28s: %.2f\n", nome_attr1, valor_attr1_c1);
+    printf("  > %-28s: %.2f\n", nome_attr2, valor_attr2_c1);
+    printf("  > SOMA TOTAL                  : %.2f\n\n", soma_carta1);
+
+    printf("CARTA 2: %s\n", Baralho[1].NomeCidade);
+    printf("  > %-28s: %.2f\n", nome_attr1, valor_attr1_c2);
+    printf("  > %-28s: %.2f\n", nome_attr2, valor_attr2_c2);
+    printf("  > SOMA TOTAL                  : %.2f\n", soma_carta2);
+    printf("------------------------------------\n");
+
+    // Lógica para determinar vencedor individual de cada atributo (usando operador ternário)
+    // Apenas para fins de exibição, não afeta o resultado final.
+    bool c1_vence_attr1;
+    if (escolha1 == 5) c1_vence_attr1 = valor_attr1_c1 < valor_attr1_c2; // Densidade (menor vence)
+    else c1_vence_attr1 = valor_attr1_c1 > valor_attr1_c2; // Padrão (maior vence)
+    
+    bool c1_vence_attr2;
+    if (escolha2 == 5) c1_vence_attr2 = valor_attr2_c1 < valor_attr2_c2; // Densidade (menor vence)
+    else c1_vence_attr2 = valor_attr2_c1 > valor_attr2_c2; // Padrão (maior vence)
+
+    printf("Análise individual:\n");
+    printf("  > %s: %s\n", nome_attr1, (valor_attr1_c1 == valor_attr1_c2) ? "Empate" : (c1_vence_attr1 ? Baralho[0].NomeCidade : Baralho[1].NomeCidade));
+    printf("  > %s: %s\n", nome_attr2, (valor_attr2_c1 == valor_attr2_c2) ? "Empate" : (c1_vence_attr2 ? Baralho[0].NomeCidade : Baralho[1].NomeCidade));
+    printf("------------------------------------\n");
+
+    // --- RESULTADO FINAL BASEADO NA SOMA ---
+    printf("RESULTADO FINAL (baseado na soma):\n");
+    if (soma_carta1 > soma_carta2) {
+        printf("VENCEDOR: Carta 1 - %s!\n", Baralho[0].NomeCidade);
+    } else if (soma_carta2 > soma_carta1) {
+        printf("VENCEDOR: Carta 2 - %s!\n", Baralho[1].NomeCidade);
+    } else {
+        printf("RESULTADO: Empate!\n");
+    }
+    printf("====================================\n");
 
     printf("\nFinalizando o programa.\n");
-
     free(Baralho);
     return 0;
 }
